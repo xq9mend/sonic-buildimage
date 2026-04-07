@@ -18,10 +18,12 @@ jobs:
         uses: actions/checkout@v3
 
       - name: Fetch base branch
+        if: github.event_name == 'pull_request'
         run: |
           git fetch origin ${GITHUB_BASE_REF}
 
       - name: Check protected files
+        if: github.event_name == 'pull_request'
         run: |
           echo "Starting file check step"
           protected_files=('src/sonic-config-engine/minigraph.py' 'files/build_templates/init_cfg.json.j2')
