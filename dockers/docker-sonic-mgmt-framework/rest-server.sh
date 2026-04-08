@@ -25,6 +25,11 @@ if [ -n "$REST_SERVER" ]; then
     CA_CRT=$(echo $REST_SERVER | jq -r '.ca_crt // empty')
 fi
 
+# Default to user authentication when not explicitly configured
+if [ -z "$CLIENT_AUTH" ]; then
+    CLIENT_AUTH="user"
+fi
+
 if [[ -z $SERVER_CRT ]] && [[ -z $SERVER_KEY ]] && [[ -z $CA_CRT ]]; then
     X509=$(echo $MGMT_VARS | jq -r '.x509')
 fi
