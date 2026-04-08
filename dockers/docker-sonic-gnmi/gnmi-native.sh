@@ -124,8 +124,8 @@ else
 fi
 
 USER_AUTH=$(extract_field "$GNMI" '.user_auth')
-# If user_auth is not set (empty or null), default to cert auth
-if [ -z "$USER_AUTH" ] || [ "$USER_AUTH" == "null" ]; then
+# If user_auth is not set, default to certs
+if [ $USER_AUTH == "null" ]; then
     USER_AUTH="cert"
 fi
 if [ ! -z "$USER_AUTH" ] && [  $USER_AUTH != "null" ] && [  $USER_AUTH != "none" ]; then
