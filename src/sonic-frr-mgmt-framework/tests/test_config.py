@@ -53,11 +53,11 @@ class CmdMapTestInfo:
         return copy.deepcopy(cls.data_buf[test.table_name][test.key])
     @staticmethod
     def compose_vtysh_cmd(cmd_list, negtive = False):
-        cmdline = 'vtysh'
+        result = ['vtysh']
         for cmd in cmd_list:
             cmd = cmd.format('no ' if negtive else '')
-            cmdline += " -c '%s'" % cmd
-        return cmdline
+            result += ['-c', cmd]
+        return result
     def check_running_cmd(self, mock, is_del):
         if is_del:
             vtysh_cmd = self.vtysh_cmd if self.vtysh_neg_cmd is None else self.vtysh_neg_cmd
@@ -82,7 +82,9 @@ def hdl_confed_peers_cmd(is_del, cmd_list, chk_data):
     if is_del:
         chk_data = list(reversed(chk_data))
     for idx, cmd in enumerate(cmd_list):
-        last_cmd = re.findall(r"-c\s+'([^']+)'\s*", cmd)[-1]
+        # cmd is now a list: ['vtysh', '-c', ..., '-c', last_cmd]
+        # Extract last -c value
+        last_cmd = cmd[-1] if isinstance(cmd, list) else re.findall(r"-c\s+'([^']+)'\s*", cmd)[-1]
         neg_cmd = False
         if last_cmd.startswith('no '):
             neg_cmd = True
