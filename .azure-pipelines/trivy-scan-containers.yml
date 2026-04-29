@@ -1,0 +1,76 @@
+# .azure-pipelines/trivy-scan-containers.yml
+#
+# Trivy vulnerability scan for SONiC service container images.
+# Runs in parallel with existing jobs — zero build time increase.
+# Downloads an already-published artifact and scans all docker-*.gz images
+# for HIGH/CRITICAL unfixed CVEs.
+#
+# Phase 1: informational only (continueOnError: true, exit-code: 0)
+# Phase 2: set exit-code: 1 and continueOnError: false to block on findings.
+
+parameters:
+- name: artifactName
+  type: string
+  default: sonic-buildimage.vs
+
+jobs:
+- job: trivy_container_scan
+  displayName: "Trivy container scan (docker-*.gz)"
+  pool: sonic-ubuntu-1c
+  continueOnError: true
+  timeoutInMinutes: 90
+  steps:
+  - checkout: none
+
+  - task: DownloadPipelineArtifact@2
+    inputs:
+      artifact: ${{ parameters.artifactName }}
+    displayName: "Download ${{ parameters.artifactName }} artifact"
+
+  - script: |
+      set -ex
+      curl -sfL https://raw.githubusercontent.com/aquasecurity/trivy/main/contrib/install.sh \
+        | sh -s -- -b ~/.local/bin
+      trivy --version
+    displayName: "Install Trivy"
+
+  - script: |
+      set -ex
+      RESULTS_DIR=$(Build.ArtifactStagingDirectory)/trivy-results
+      mkdir -p "$RESULTS_DIR"
+      TRIVY_CACHE=$(Agent.TempDirectory)/trivy-cache
+      mkdir -p "$TRIVY_CACHE"
+
+      # Download vulnerability DB once, reuse for all images
+      ~/.local/bin/trivy image --download-db-only --cache-dir "$TRIVY_CACHE" --no-progress
+
+      for img in $(Pipeline.Workspace)/target/docker-*.gz; do
+        [ -f "$img" ] || continue
+        name=$(basename "$img" .gz)
+        echo "--- Scanning: $name ---"
+        ~/.local/bin/trivy image \
+          --input "$img" \
+          --severity HIGH,CRITICAL \
+          --ignore-unfixed \
+          --exit-code 0 \
+          --format table \
+          --no-progress \
+          --cache-dir "$TRIVY_CACHE" \
+          --skip-db-update \
+          2>&1 | tee "$RESULTS_DIR/${name}.txt"
+      done
+
+      echo ""
+      echo "=== Trivy Container Scan Summary ==="
+      for f in "$RESULTS_DIR"/docker-*.txt; do
+        name=$(basename "$f" .txt)
+        total=$(grep "^Total:" "$f" | head -1 || echo "Clean")
+        echo "  $name: $total"
+      done
+    displayName: "Scan all docker-*.gz images"
+
+  - publish: $(Build.ArtifactStagingDirectory)/trivy-results
+    artifact: trivy-container-scan-results
+    displayName: "Publish Trivy container scan results"
+    condition: always()
+    continueOnError: true

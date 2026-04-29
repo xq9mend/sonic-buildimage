@@ -214,3 +214,10 @@ stages:
     parameters:
       CHECKOUT_SONIC_MGMT: ${{ parameters.CHECKOUT_SONIC_MGMT }}
       PTF_MODIFIED: $(PTF_MODIFIED)
+
+  # Trivy container scan — runs in parallel with KVM tests
+  # Scans all docker-*.gz images (including docker-ptf) from the VS build artifact
+  # Phase 1: informational only (continueOnError: true, exit-code: 0)
+  - template: .azure-pipelines/trivy-scan-containers.yml
+    parameters:
+      artifactName: sonic-buildimage.vs
